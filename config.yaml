@@ -1,0 +1,171 @@
+#===============================================================================
+#                      Default Configuration for LSQ-Net
+#===============================================================================
+# Please do NOT modify this file directly. If you want to modify configurations,
+# please:
+# 1. Create a new YAML file and copy some bellowing options to it.
+# 2. Modify these options in your YAML file.
+# 3. run main.py with your configuration file in the command line, like this:
+#       $ python main.py path/to/your/config/file
+# The options modified in your configuration file will overwrite those in this
+# file.
+#============================ Environment ======================================
+
+# Experiment name not per channel not all quant  all positive
+name: LongR20C10W4A4_NPC_NAQ
+
+# Name of output directory. Checkpoints and logs will be saved at `pwd`/output_dir
+output_dir: out
+
+# Device to be used
+device:
+  # Use CPU or GPU (choices: cpu, cuda)
+  type: cuda
+  # GPU device IDs to be used. Only valid when device.type is 'cuda'. confuse，1-》1 or 5-》1
+  gpu: [5]
+
+# final for muti-devices
+final_batch_size: 32
+
+# Dataset loader
+dataloader:
+  # Dataset to train/validate (choices: imagenet, cifar10)
+  dataset: cifar10
+  # Number of categories in the specified dataset (choices: 1000, 10)
+  num_classes: 10
+  # Path to dataset directory /rdata/datasets/imagenet /home/long.huang/Datasets
+  path: /home/long.huang/Datasets
+  # Size of mini-batch  256 for imagenet
+  batch_size: 32
+  # Number of data loading workers. 这玩意能利用CPU加速装载数据，其实就是开多个线程
+  workers: 2
+  # Seeds random generators in a deterministic way (i.e., set all the seeds 0).
+  # Please keep it true when resuming the experiment from a checkpoint
+  deterministic: true
+  # Load the model without DataParallel wrapping it
+  serialized: false
+  # Portion of training dataset to set aside for validation (range: [0, 1))
+  val_split: 0.04
+
+resume:
+  # Path to a checkpoint to be loaded. Leave blank to skip
+  path:
+  # Resume model parameters only
+  lean: false
+
+log:
+  # Number of best scores to track and report
+  num_best_scores: 3
+  # Print frequency
+  print_freq: 50
+
+#============================ Model ============================================
+
+# Supported model architecture
+# choices:
+#   ImageNet:
+#     resnet18, resnet34, resnet50, resnet101, resnet152, mobilenetv2
+#   CIFAR10:
+#     resnet20, resnet32, resnet44, resnet56, resnet110, resnet1202, mobilenetv2
+arch: resnet20
+
+# Use pre-trained model
+pre_trained: true
+
+hub_path: /data/long.huang/pretrained
+#============================ Quantization =====================================
+
+quan:
+  act: # (default for all layers)
+    # Quantizer type (choices: lsq, lsqp)
+    mode: lsq
+    # Bit width of quantized activation
+    bit: 3
+    # Each output channel uses its own scaling factor  only false!
+    per_channel: false
+    # Whether to use symmetric quantization
+    symmetric: false
+    # Quantize all the numbers to non-negative  because ReLU
+    all_positive: true
+  weight: # (default for all layers)
+    # Quantizer type (choices: lsq, lsqp)
+    mode: lsq
+    # Bit width of quantized weight
+    bit: 3
+    # Each output channel uses its own scaling factor the paper require one layer one s .when per channel,there will be better and fast convegence;otherwise it will be gradual down,why?
+    per_channel: false
+    # Whether to use symmetric quantization
+    symmetric: true
+    # Whether to quantize all the numbers to non-negative
+    all_positive: false
+  excepts:
+    # Specify quantized bit width for some layers, like this:  must be name,not the class
+    conv1:
+#    features.0.0:
+      act:
+        bit:
+        all_positive: false  # because input image is symmetric
+      weight:
+        bit:
+    linear:
+#    fc:
+#    classifier.1:
+      act:
+        bit:
+#        per_channel: false
+      weight:
+        bit:
+
+#============================ Training / Evaluation ============================
+
+# Evaluate the model without training
+# If this field is true, all the bellowing options will be ignored
+# lrate:  0.1 for full, 0.01 for 2-3-4-, 0.001 for 8 bit
+# pre_learning_rate: 0.1 for 2-3- ,1 for other
+eval: false
+
+epochs: 1
+# 0.1 for W4A4↑  0.01 for W2A2
+pre_learning_rate: 0.001
+
+optimizer:
+  # 0.01for W4A4↑ 0.001for W2A2
+  learning_rate: 0.001
+  momentum: 0.99
+  weight_decay: 0.00001  # 0.00001 for most  0.0001for mbn
+
+# Learning rate scheduler
+lr_scheduler:
+  # Update learning rate per batch or epoch
+  update_per_batch: true
+
+  # Uncomment one of bellowing options to activate a learning rate scheduling
+
+  # Fixed learning rate
+  # mode: fixed
+
+  # Step decay
+  mode: step
+  step_size: 40
+  gamma: 0.1
+
+  # Multi-step decay
+#   mode: multi_step
+#   milestones: [45,80]
+#   gamma: 0.1
+
+  # Exponential decay
+  # mode: exp
+  # gamma: 0.95
+
+  # Cosine annealing
+  # mode: cos
+  # lr_min: 0
+  # cycle: 0.95
+
+  # Cosine annealing with warm restarts
+  # mode: cos_warm_restarts
+  # lr_min: 0
+  # cycle: 5
+  # cycle_scale: 2
+  # amp_scale: 0.5

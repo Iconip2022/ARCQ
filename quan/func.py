@@ -11,9 +11,7 @@ import csv
 import os,sys
 import random
 import numpy as np
-'''
-这个文件提供生成量化层的API
-'''
+
 def Get_Average(list_):
     sum = 0
     for item in list_:
@@ -41,7 +39,7 @@ def Get_Most(list_):
     for i in list_set:
         frequency_dict[i]=list.count(i)# new_dict[key]=value
     grade_mode=[]
-    for key,value in frequency_dict.items():#遍历dict的key and value。key:value
+    for key,value in frequency_dict.items():
         if value==max(frequency_dict.values()):
             grade_mode.append(key)
     return grade_mode/len(grade_mode)
@@ -54,10 +52,6 @@ class QuanConv2d(t.nn.Conv2d):
         :param m:
         :param quan_w_fn:
         :param quan_a_fn:
-        注意，函数中的
-        “：”定义形参的类型，好处是python可以根据定义的类型自动引用方法，实际上
-        不会对类型做检查，但是如果形参类型在函数内部不同可能会导致函数运行错误。
-        “->”则表示函数返回的类型是什么类型，实际上也是不做检查的
         """
         assert type(m) == t.nn.Conv2d 
         super().__init__(m.in_channels, m.out_channels, m.kernel_size,
@@ -66,7 +60,7 @@ class QuanConv2d(t.nn.Conv2d):
                          dilation=m.dilation,
                          groups=m.groups,
                          bias=True if m.bias is not None else False,
-                         padding_mode=m.padding_mode)  # 生成对应的层的复制，自己本身就是个层嘛
+                         padding_mode=m.padding_mode)  
         
         self.weight = t.nn.Parameter(m.weight.detach())  
         if m.bias is not None:  
@@ -78,7 +72,7 @@ class QuanConv2d(t.nn.Conv2d):
         self.weight_residual_flag = 1#quan_w_fn[1]
         self.layer = quan_a_fn[0]
         # self.scale_x = quan_a_fn[0]
-        # 这个地方应该由外面赋值 
+       
         self.update_mode = update_mode
         self.res_flag = 1#quan_a_fn[2]
 
@@ -109,16 +103,6 @@ class QuanConv2d(t.nn.Conv2d):
         
         self.scalew_init()
         
-
-      
-        
-
-
-
-        '''
-        类型转换函数parameter，将一个不可训练的类型Tensor转换成可以训练的类型parameter并将这个parameter绑定到这个module里面,
-        参数优化的时候可以自动参与优化。这个函数的目的也是想让某些变量在学习的过程中不断的修改其值以达到最优化。
-        '''
 
     def scalew_init(self):
         w_max = t.max(self.weight)
@@ -212,16 +196,16 @@ class QuanConv2d(t.nn.Conv2d):
                 derta_w2int = 0*weight_derta.round()
             # dequant only weight mse
             # q_w = (quant_weight-weight_zeropoint)*scale_w
-            # 如何确定这一layer是否应该补偿呢 同样的计算mse的分数吗 那是不是应该计算补偿前后mse的derta确定 是的
+            
             derta_float = (self._conv_forward(quant_x, derta_w2int, bias = None) + self._conv_forward(derta_x2int,quant_weight-self.weight_zeropoint,bias = None))/(2**self.bit-1)
             derta = derta_float.round()
             # res_round = y_q - self._conv_forward(z_x, self.quanweight,bias = None) #- self._conv_forward(quantized_act, z_w,bias = None) + self._conv_forward(z_x, z_w,bias = None)
             z_w = quant_weight * 0 + self.weight_zeropoint
             # quan conv 
-            # due to zeropoint is 0  ==> 是否可以把 y - y_q 等价于 derta?
+           
             output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  - self._conv_forward(quant_x, z_w,bias = None) 
             output_quan2float =( output_quan  + derta ) * scale_w*scale_x
-            # 原来的输出值
+            
              
             score = (output_ - output_quan2float).abs().pow(2.4).mean()
             if score < best_socre:
@@ -269,18 +253,18 @@ class QuanConv2d(t.nn.Conv2d):
                 derta_x2int =0*x_derta.round()
             # dequant only weight mse
             # q_w = (quant_weight-weight_zeropoint)*scale_w
-            # 如何确定这一layer是否应该补偿呢 同样的计算mse的分数吗 那是不是应该计算补偿前后mse的derta确定 是的
+           
             derta_float = self._conv_forward(quant_x-x_zeropoint, derta_w2int, bias = None)/(2**self.bit-1) + self._conv_forward(derta_x2int,quant_weight - self.weight_zeropoint,bias = None)/(2**self.actbit-1)
             derta = derta_float.round()
             
             # quan conv 
-            # due to zeropoint is 0  ==> 是否可以把 y - y_q 等价于 derta?
-            # output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  
+            
+            
             output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  - self._conv_forward(quant_x, z_w,bias = None)-self._conv_forward(z_x, quant_weight,bias = None) 
 
             output_quan2float = ( output_quan  + derta ) * scale_w*scale_x
-            # 原来的输出值
-            
+            # float
+            # output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  
             score = (output_ - output_quan2float).abs().pow(2.4).mean()
             if score < best_socre:
                 best_socre = score
@@ -299,7 +283,7 @@ class QuanConv2d(t.nn.Conv2d):
         #     with open(self.tar_path,'w') as csvfile:
         #         writer = csv.DictWriter(csvfile,fieldnames=['layer','scale_x','scale_w','self.zeropoint','self.score_bestx','self.score_bestw'])
         #         writer.writeheader()
-        #         # 先粗燥写一下 格式转换
+        #        
         #         if not type(self.scale_x) == type(0.012):
         #             scale_x_write = float(self.scale_x.cpu().numpy())
         #         else:
@@ -381,7 +365,7 @@ class QuanConv2d(t.nn.Conv2d):
     def forward(self, x):
         # logging.basicConfig(filename='ptqtest.log',level=logging.DEBUG)
         
-        # 参数保存到self里，这样可以避免传参
+        
         if self.update_mode == 'update_x' and 0:
             self.scale_x,y,self.zeropoint_x = self.update_scalex(x,self.scale_wdict)
             self.update_scale = self.scale_x
@@ -424,7 +408,7 @@ class QuanConv2d(t.nn.Conv2d):
             # z_w = self.quanweight * 0 + self.weight_zeropoint
             # dequant only weight mse
             # q_w = (quant_weight-weight_zeropoint)*scale_w
-            # 如何确定这一layer是否应该补偿呢 同样的计算mse的分数吗 那是不是应该计算补偿前后mse的derta确定 是的
+           
             # derta_float = self._conv_forward(quant_x, self.delta_w, bias = None)/(2**self.bit-1) + self._conv_forward(xdertaint,self.quanweight-self.weight_zeropoint,bias = None)/(2**self.actbit)
             # derta = derta_float.round()
             # output_quan = self._conv_forward(quant_x, self.quanweight,bias = None)  - self._conv_forward(quant_x, z_w,bias = None) - self._conv_forward(z_x, self.quanweight,bias = None)
@@ -470,7 +454,7 @@ class QuanLinear(t.nn.Linear):
         self.weight = t.nn.Parameter(m.weight.detach())
         # self.quan_w_fn.w_init_from(m.weight)
         self.scalew_init()
-        if m.bias is not None:  # 全连接层的bias似乎是一定有的，这个判断没啥意义
+        if m.bias is not None:  
             self.bias = t.nn.Parameter(m.bias.detach())
             # self.bias.data = self.quan_b(self.bias.data)
     
@@ -556,17 +540,17 @@ class QuanLinear(t.nn.Linear):
                 derta_x2int =0*x_derta.round()
             # dequant only weight mse
             # q_w = (quant_weight-weight_zeropoint)*scale_w
-            # 如何确定这一layer是否应该补偿呢 同样的计算mse的分数吗 那是不是应该计算补偿前后mse的derta确定 是的
+            
             derta_float = (self._conv_forward(quant_x, derta_w2int, bias = None) + self._conv_forward(derta_x2int,quant_weight - self.weight_zeropoint,bias = None))/(2**self.bit-1)
             derta = derta_float.round()
             
             # quan conv 
-            # due to zeropoint is 0  ==> 是否可以把 y - y_q 等价于 derta?
-            # output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  
+          
+             
             output_quan = self._conv_forward(quant_x, quant_weight,bias = None)  - self._conv_forward(quant_x, z_w,bias = None) 
 
             output_quan2float = ( output_quan  + derta ) * scale_w*scale_x
-            # 原来的输出值
+            
             
             score = (output_ - output_quan2float).abs().pow(2.4).mean()
             if score < best_socre:
@@ -585,12 +569,12 @@ class QuanLinear(t.nn.Linear):
         x_zeropoint = t.tensor(0.0)
         quant_x = t.clamp((x / scale_x).round()+ x_zeropoint,self.neg,self.pos)
         requan_x = (quant_x-x_zeropoint)*scale_x
-        # quantized_weight,w_delta_int,w_zeropoint,w_scale= self.quan_w_fn(self.weight)  # 用quatizer进行forward下的量化操作
-        # quantized_act,in_derta_int,in_zeropoint,in_scale = self.quan_a_fn(x)  # 用quatizer进行forward下的量化操作
-        return t.nn.functional.linear(requan_x, self.requanweight, self.bias)  # 确实是调用的这个函数来进行linear
+        # quantized_weight,w_delta_int,w_zeropoint,w_scale= self.quan_w_fn(self.weight)  
+        # quantized_act,in_derta_int,in_zeropoint,in_scale = self.quan_a_fn(x)  
+        return t.nn.functional.linear(requan_x, self.requanweight, self.bias) 
 
-# 能够量化的层的映射。这里好像得加上activation？
+
 QuanModuleMapping = {
     t.nn.Conv2d: QuanConv2d,
-    # t.nn.Linear: QuanLinear
+    t.nn.Linear: QuanLinear
 }
